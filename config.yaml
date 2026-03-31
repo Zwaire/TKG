@@ -1,0 +1,89 @@
+# 数据配置
+data:
+  dataset: "ICEWS14s"
+  data_path: "./data/ICEWS14s"
+  time_granularity: "day"
+  history_window: 5  # 使用前K个时间步
+  snapshot_interval: 1
+  
+  # 文本生成配置
+  text_generation:
+    use_api: true
+    cache_dir: "./data/text_cache"
+
+# 模型配置
+model:
+  # 嵌入模型配置
+  embedding:
+    structural:
+      hidden_dim: 256
+      num_layers: 2
+      dropout: 0.3
+      use_time_decay: true
+      decay_method: "exponential"
+      decay_rate: 0.1
+    
+    semantic:
+      text_encoder: "sentence-transformers/all-MiniLM-L6-v2"
+      hidden_dim: 256
+      freeze_encoder: true
+    
+    fusion:
+      method: "mlp"
+      hidden_layers: [512, 256]
+      output_dim: 256
+  
+  # 聚类配置
+  clustering:
+    method: "kmeans"  # 或 "contrastive", "topic_modeling"
+    n_clusters: 20
+    update_frequency: 10     # 每10个epoch更新一次聚类
+    contrastive:
+      temperature: 0.1
+      negative_samples: 512
+      memory_bank_size: 8192
+    topic_modeling:
+      num_topics: 15
+      topic_update_freq: 5
+
+# 训练配置
+training:
+  # 训练策略
+  strategy: "temporal_sequential"  # 时间顺序训练
+  batch_size: 64
+  num_epochs: 100
+  learning_rate: 0.001
+  device: "cuda"
+  
+  # 损失权重
+  loss_weights:
+    reconstruction: 1.0      # 重建损失（链接预测）
+    contrastive: 0.5         # 对比学习损失
+    temporal: 0.3            # 时间一致性损失
+    clustering: 0.2          # 聚类损失
+    regularization: 0.01     # 正则化损失
+  
+  # 时间感知训练
+  temporal:
+    use_curriculum: true     # 是否使用课程学习
+    warmup_epochs: 10        # 预热epoch数
+    history_sampling: "uniform"  # 历史采样策略：uniform, recent, weighted
+    
+  # 优化器
+  optimizer:
+    type: "adam"
+    weight_decay: 0.0001
+    scheduler: "cosine"
+    warmup_steps: 1000
+    
+  # 检查点
+  checkpoint:
+    save_frequency: 10
+    keep_last_n: 5
+    eval_frequency: 5
+
+# 评估配置
+evaluation:
+  metrics: ["mrr", "hits@1", "hits@3", "hits@10"]
+  candidate_sampling: "all"  # 或 "top_k", "filtered"
+  top_k_values: [1, 3, 10, 50]
