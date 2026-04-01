@@ -28,7 +28,6 @@ class TimeDecayFunction(nn.Module):
 
 
 class TemporalRGCNEncoder_DGL(nn.Module):
-    """基于 DGL 的多层时间衰减 RGCN"""
     def __init__(self, num_entities: int, num_relations: int,
                  hidden_dim: int = 256, num_layers: int = 2,
                  num_bases: int = 10, dropout: float = 0.3,
@@ -38,44 +37,42 @@ class TemporalRGCNEncoder_DGL(nn.Module):
         self.num_relations = num_relations
         self.hidden_dim = hidden_dim
         
-        # 初始节点嵌入与关系嵌入
         self.entity_emb = nn.Embedding(num_entities, hidden_dim)
         self.relation_emb = nn.Embedding(num_relations, hidden_dim)
         
-        # 严谨的时间衰减模块
+        # 【新增1】：加入 LayerNorm 和 Dropout 来稳定数值
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.dropout = nn.Dropout(dropout)
+        
         self.time_decay = TimeDecayFunction(decay_method, decay_rate)
         
-        # DGL 原生关系图卷积层
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             self.layers.append(RelGraphConv(
-                in_feat=hidden_dim, 
-                out_feat=hidden_dim, 
-                num_rels=num_relations, 
-                regularizer='basis', 
-                num_bases=num_bases,
-                self_loop=True,
+                in_feat=hidden_dim, out_feat=hidden_dim, 
+                num_rels=num_relations, regularizer='basis', 
+                num_bases=num_bases, self_loop=True,
                 dropout=dropout if i < num_layers - 1 else 0.0
             ))
             
+        # 【新增2】：使用 Xavier 初始化，严防初始数值过大
+        nn.init.xavier_uniform_(self.entity_emb.weight)
+        nn.init.xavier_uniform_(self.relation_emb.weight)
+            
     def forward(self, g: dgl.DGLGraph, current_time: torch.Tensor) -> torch.Tensor:
-        """
-        g: DGLGraph，必须包含 edge_type ('etype') 和 edge_time ('etime') 特征
-        """
-        # 1. 初始化节点特征
-        h = self.entity_emb.weight
+        h_init = self.entity_emb.weight
+        h = self.dropout(h_init) # 初始特征加点 dropout
         
-        # 2. 提取边类型和边时间
         etypes = g.edata['etype']
         etimes = g.edata['etime']
-        
-        # 3. 计算时间衰减权重 (Edge Norm)
         edge_weights = self.time_decay(etimes, current_time)
         
-        # 4. 逐层前向传播
         for layer in self.layers:
-            # DGL 的 RelGraphConv 完美支持传入 norm 作为边权重
             h = layer(g, h, etypes, norm=edge_weights)
             h = torch.relu(h)
             
+        # 【核心修复】：残差连接后，必须接 LayerNorm 压制数值范围！
+        h = h + h_init
+        h = self.norm(h) 
+        
         return h

@@ -18,10 +18,12 @@ class TKGLosses(nn.Module):
         :param tail_emb: [Num_Entities, hidden_dim] (我们要和所有候选尾节点打分)
         :return: [Batch, Num_Entities]
         """
-        # [Batch, hidden_dim]
         head_rel = head_emb * rel_emb 
-        # [Batch, Num_Entities] = [Batch, hidden_dim] @ [hidden_dim, Num_Entities]
         scores = torch.matmul(head_rel, tail_emb.transpose(0, 1))
+        
+        scaling_factor = head_emb.size(-1) ** 0.5  # 256的平方根是16
+        scores = scores / scaling_factor
+        
         return scores
 
     def compute_link_prediction_loss(self, entity_embs: torch.Tensor, rel_embs: torch.Tensor, 

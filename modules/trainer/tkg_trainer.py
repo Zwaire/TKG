@@ -108,7 +108,9 @@ class TemporalKGTrainer:
             
             # 打分: [Num_Events, Num_Entities]
             scores = self.loss_fn._calc_distmult_score(entity_embs[src_ids], rel_embs[rel_ids], entity_embs)
-            
+
+            noise = torch.randn_like(scores) * 1e-6
+            scores = scores + noise
             # 计算排名 (这里是一个简化的评测逻辑，实际中可能需要过滤掉训练集中出现过的 true facts，即 filtered-MRR)
             # 找到真实目标在候选者中的排名
             for i in range(len(dst_ids)):
