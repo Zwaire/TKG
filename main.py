@@ -13,7 +13,7 @@ def load_config(path: str):
         return yaml.safe_load(f)
 
 def main():
-    # 1. 加载配置 (你可以自己写一个极简的 config.yaml)
+    # 1. 加载配置 
     config = {
         "device": "cuda",
         "lr": 0.0001,

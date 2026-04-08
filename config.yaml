@@ -1,16 +1,32 @@
 # 数据配置
 data:
-  dataset: "ICEWS14s"
-  data_path: "./data/ICEWS14s"
+  dataset: "ICEWS18"
+  data_path: "./data/ICEWS18"
   time_granularity: "day"
   history_window: 5  # 使用前K个时间步
   snapshot_interval: 1
   
   # 文本生成配置
   text_generation:
+    use_llm: true          # 代码逻辑中同时检查 use_api 和 use_llm
     use_api: true
+    use_fallback: true     # API调用全部失败时，是否允许回退到模板拼接(SimpleTextGenerator)
+    fallback_only: false   # 如果设为 true，则不调用大模型，纯使用简单模板
     cache_dir: "./data/text_cache"
-
+    
+    # Qwen API 具体配置
+    api:
+      api_key: ""          # 推荐留空，通过环境变量 DASHSCOPE_API_KEY 读取，更安全
+      base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      model: "qwen-plus"   # 推荐使用 qwen-plus，性价比最高；追求极致质量可用 qwen-max
+      max_retries: 3       # 失败重试次数
+      retry_delay: 2       # 重试基础延迟（秒）
+      timeout: 60          # 响应超时时间（秒）
+      
+      # 批量生成与并发控制 (极其重要，防止触发阿里云限流)
+      requests_per_minute: 60  # 每分钟请求数限制 (请根据你的百炼账号 RPM 额度调整)
+      concurrency: 4           # 并发线程数
+      triples_per_request: 10  # 每次 Prompt 打包几条三元组发送 (也就是 Batch Prompt)
 # 模型配置
 model:
   # 嵌入模型配置
